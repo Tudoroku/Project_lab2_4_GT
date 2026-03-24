@@ -62,14 +62,33 @@ int service_delete(Service* s, int id);
 int service_size(const Service* s);
 
 /*
- * Getteri pentru UI.
- * UI-ul nu vede direct domain-ul.
+ * Returneaza id-ul dispozitivului de pe pozitia data.
  */
 int service_get_id(const Service* s, int poz);
+
+/*
+ * Returneaza tipul dispozitivului de pe pozitia data.
+ */
 const char* service_get_type(const Service* s, int poz);
+
+/*
+ * Returneaza producatorul dispozitivului de pe pozitia data.
+ */
 const char* service_get_prod(const Service* s, int poz);
+
+/*
+ * Returneaza modelul dispozitivului de pe pozitia data.
+ */
 const char* service_get_model(const Service* s, int poz);
+
+/*
+ * Returneaza pretul dispozitivului de pe pozitia data.
+ */
 float service_get_price(const Service* s, int poz);
+
+/*
+ * Returneaza cantitatea dispozitivului de pe pozitia data.
+ */
 int service_get_quant(const Service* s, int poz);
 
 /*
