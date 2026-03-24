@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -e
+
+# Avoid stale coverage artifacts after file renames.
+cmake -E rm -rf compilare-coverage
+
+cmake -S . -B compilare-coverage -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="--coverage -O0 -g"
+cmake --build compilare-coverage --target lab2_4_tests
+./compilare-coverage/lab2_4_tests
+gcovr -r . --html --html-details -o coverage.html
+
+echo "Gata. Raport coverage: $(pwd)/coverage.html"
+if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open coverage.html >/dev/null 2>&1 || true
+fi
+firefox coverage.html --new-tab --wait
+rm coverage.*
