@@ -606,6 +606,8 @@ static void test_service_undo_failure_paths(void)
     s.undo_list.lg = 1;
     assert(service_undo(&s) == -1);
     s.undo_list.lg = 0;
+    free(broken_snapshot);
+    s.undo_list.elems[0] = NULL;
 
     service_destroy(&s);
     repo_destroy(&r);

@@ -20,8 +20,18 @@ e) Vizualizare lista de produse filtrate dupa un criteriu (producator, pret, can
 #include "UI/ui.h"
 #include "Tests/tests.h"
 #include <stdio.h>
+#include <string.h>
 
-int main()
+static void load_sample_data(Service* service)
+{
+    service_add(service, 1, "laptop", "lenovo", "legion", 5200.0f, 3);
+    service_add(service, 2, "televizor", "samsung", "qled", 3400.0f, 2);
+    service_add(service, 3, "frigider", "beko", "neo", 2800.0f, 1);
+    service_add(service, 4, "telefon", "apple", "iphone15", 4900.0f, 4);
+    service_add(service, 5, "laptop", "asus", "vivobook", 3100.0f, 2);
+}
+
+int main(int argc, char** argv)
 {
     run_all_tests();
 
@@ -36,6 +46,11 @@ int main()
     }
     service_init(&service, &repo);
     ui_init(&ui, &service);
+
+    if (argc > 1 && strcmp(argv[1], "--with-data") == 0)
+    {
+        load_sample_data(&service);
+    }
 
     ui_run(&ui);
     service_destroy(&service);
