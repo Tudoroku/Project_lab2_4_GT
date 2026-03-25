@@ -25,7 +25,7 @@ static int service_store_undo_snapshot(Service* s)
         return 0;
     }
 
-    return list_push_back(&s->undo_list, s->repo);
+    return list_add(&s->undo_list, s->repo);
 }
 
 void service_init(Service* s, Repo* r)
@@ -175,7 +175,7 @@ int service_undo(Service* s)
         return -1;
     }
 
-    list_remove_at(&s->undo_list, history_size - 1);
+    list_remove(&s->undo_list, history_size - 1);
     return 1;
 }
 

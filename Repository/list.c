@@ -42,7 +42,7 @@ static void* list_realloc(void* ptr, size_t size)
 #define list_realloc realloc
 #endif
 
-static void list_destroy_range(List* list, int from)
+static void list_free_from(List* list, int from)
 {
     if (list == NULL || list->elems == NULL || list->destroy_elem == NULL)
     {
@@ -134,7 +134,7 @@ int list_resize(List* list, int opt)
     return 1;
 }
 
-int list_push_back(List* list, const void* elem)
+int list_add(List* list, const void* elem)
 {
     if (list == NULL || list->elems == NULL || elem == NULL || list->copy_elem == NULL)
     {
@@ -166,7 +166,7 @@ void* list_get(const List* list, int poz)
     return list->elems[poz];
 }
 
-int list_set(List* list, int poz, const void* elem)
+int list_replace(List* list, int poz, const void* elem)
 {
     if (list == NULL || list->elems == NULL || elem == NULL || poz < 0 || poz >= list->lg)
     {
@@ -188,7 +188,7 @@ int list_set(List* list, int poz, const void* elem)
     return 1;
 }
 
-int list_remove_at(List* list, int poz)
+int list_remove(List* list, int poz)
 {
     if (list == NULL || list->elems == NULL || poz < 0 || poz >= list->lg)
     {
@@ -216,7 +216,7 @@ int list_remove_at(List* list, int poz)
     return 1;
 }
 
-int list_assign(List* dest, const List* src)
+int list_copy(List* dest, const List* src)
 {
     if (dest == NULL || src == NULL || src->destroy_elem == NULL || src->copy_elem == NULL)
     {
@@ -231,7 +231,7 @@ int list_assign(List* dest, const List* src)
 
     for (int i = 0; i < src->lg; i++)
     {
-        if (!list_push_back(&copy, src->elems[i]))
+        if (!list_add(&copy, src->elems[i]))
         {
             list_destroy(&copy);
             return 0;
@@ -250,7 +250,7 @@ void list_destroy(List* list)
         return;
     }
 
-    list_destroy_range(list, 0);
+    list_free_from(list, 0);
     free(list->elems);
     list->elems = NULL;
     list->lg = 0;

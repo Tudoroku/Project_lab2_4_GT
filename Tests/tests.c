@@ -182,44 +182,44 @@ static void test_list_generic_and_failure_paths(void)
     assert(list_init(&list, destroy_int, NULL) == 0);
 
     assert(list_init(&list, destroy_int, copy_int) == 1);
-    assert(list_push_back(&list, &value) == 1);
+    assert(list_add(&list, &value) == 1);
     assert(*(int*)list_get(&list, 0) == 10);
-    assert(list_set(&list, 0, &other) == 1);
+    assert(list_replace(&list, 0, &other) == 1);
     assert(*(int*)list_get(&list, 0) == 20);
 
     fail_copy_int = 1;
-    assert(list_push_back(&list, &value) == 0);
-    assert(list_set(&list, 0, &value) == 0);
+    assert(list_add(&list, &value) == 0);
+    assert(list_replace(&list, 0, &value) == 0);
     fail_copy_int = 0;
 
     fail_copy_int_malloc = 1;
-    assert(list_push_back(&list, &value) == 0);
+    assert(list_add(&list, &value) == 0);
 
-    assert(list_remove_at(&list, -1) == 0);
-    assert(list_remove_at(NULL, 0) == 0);
+    assert(list_remove(&list, -1) == 0);
+    assert(list_remove(NULL, 0) == 0);
 
     List broken_destroy = { NULL, 1, 0, NULL, NULL };
     list_destroy(&broken_destroy);
 
     List list_with_null_slot;
     assert(list_init(&list_with_null_slot, destroy_int, copy_int) == 1);
-    assert(list_push_back(&list_with_null_slot, &value) == 1);
+    assert(list_add(&list_with_null_slot, &value) == 1);
     destroy_int(list_with_null_slot.elems[0]);
     list_with_null_slot.elems[0] = NULL;
     list_destroy(&list_with_null_slot);
 
     assert(list_init(&dest, destroy_int, copy_int) == 1);
-    assert(list_assign(NULL, &list) == 0);
-    assert(list_assign(&dest, NULL) == 0);
+    assert(list_copy(NULL, &list) == 0);
+    assert(list_copy(&dest, NULL) == 0);
 
     List broken_src = { NULL, 1, 0, NULL, NULL };
-    assert(list_assign(&dest, &broken_src) == 0);
+    assert(list_copy(&dest, &broken_src) == 0);
 
     list_test_fail_next_malloc();
-    assert(list_assign(&dest, &list) == 0);
+    assert(list_copy(&dest, &list) == 0);
 
     fail_copy_int = 1;
-    assert(list_assign(&dest, &list) == 0);
+    assert(list_copy(&dest, &list) == 0);
     fail_copy_int = 0;
 
     list_destroy(&dest);

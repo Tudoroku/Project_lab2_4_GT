@@ -53,7 +53,7 @@ int repo_resize(Repo* r, int opt)
 
 int repo_add(Repo* r, Dispozitiv d)
 {
-    return list_push_back(r, &d);
+    return list_add(r, &d);
 }
 
 int repo_find_by_id(const Repo* r, int id)
@@ -82,7 +82,7 @@ const Dispozitiv* repo_get(const Repo* r, int poz)
 
 int repo_set(Repo* r, int poz, Dispozitiv d)
 {
-    return list_set(r, poz, &d);
+    return list_replace(r, poz, &d);
 }
 
 int repo_delete(Repo* r, int id)
@@ -93,7 +93,7 @@ int repo_delete(Repo* r, int id)
         return 0;
     }
 
-    return list_remove_at(r, poz);
+    return list_remove(r, poz);
 }
 
 void repo_destroy(Repo* r)
@@ -132,7 +132,7 @@ Repo* repo_clone(const Repo* r)
 
 int repo_replace(Repo* dest, const Repo* src)
 {
-    return list_assign(dest, src);
+    return list_copy(dest, src);
 }
 
 #ifdef LAB2_4_TESTING
