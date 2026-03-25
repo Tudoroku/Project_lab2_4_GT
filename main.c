@@ -38,7 +38,7 @@ int main()
     ui_init(&ui, &service);
 
     ui_run(&ui);
+    service_destroy(&service);
     repo_destroy(&repo);
     return 0;
 }
-

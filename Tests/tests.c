@@ -1,12 +1,14 @@
 #include "tests.h"
 #include <assert.h>
 #include <math.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "../Controller/service.h"
 #include "../Domain/dispozitiv.h"
 #include "../Domain/validator.h"
+#include "../Repository/list.h"
 #include "../Repository/repo.h"
 
 static int float_equal(float a, float b)
@@ -21,6 +23,31 @@ static void build_long_text(char* out, int  length)
         out[i] = (char)('a' + (i % 26));
     }
     out[length] = '\0';
+}
+
+static int fail_copy_int = 0;
+static int fail_copy_int_malloc = 0;
+
+static void destroy_int(void* elem)
+{
+    free(elem);
+}
+
+static void* copy_int(const void* elem)
+{
+    if (fail_copy_int || elem == NULL)
+    {
+        return NULL;
+    }
+
+    int* copy = fail_copy_int_malloc ? NULL : (int*)malloc(sizeof(int));
+    if (copy == NULL) {
+        fail_copy_int_malloc = 0;
+        return NULL;
+    }
+
+    *copy = *(const int*)elem;
+    return copy;
 }
 
 static void test_domain_create_and_getters(void)
@@ -143,6 +170,63 @@ static void test_repo_add_find_get_set_delete(void)
     repo_destroy(&r);
 }
 
+static void test_list_generic_and_failure_paths(void)
+{
+    int value = 10;
+    int other = 20;
+    List list;
+    List dest;
+
+    assert(list_init(NULL, destroy_int, copy_int) == 0);
+    assert(list_init(&list, NULL, copy_int) == 0);
+    assert(list_init(&list, destroy_int, NULL) == 0);
+
+    assert(list_init(&list, destroy_int, copy_int) == 1);
+    assert(list_push_back(&list, &value) == 1);
+    assert(*(int*)list_get(&list, 0) == 10);
+    assert(list_set(&list, 0, &other) == 1);
+    assert(*(int*)list_get(&list, 0) == 20);
+
+    fail_copy_int = 1;
+    assert(list_push_back(&list, &value) == 0);
+    assert(list_set(&list, 0, &value) == 0);
+    fail_copy_int = 0;
+
+    fail_copy_int_malloc = 1;
+    assert(list_push_back(&list, &value) == 0);
+
+    assert(list_remove_at(&list, -1) == 0);
+    assert(list_remove_at(NULL, 0) == 0);
+
+    List broken_destroy = { NULL, 1, 0, NULL, NULL };
+    list_destroy(&broken_destroy);
+
+    List list_with_null_slot;
+    assert(list_init(&list_with_null_slot, destroy_int, copy_int) == 1);
+    assert(list_push_back(&list_with_null_slot, &value) == 1);
+    destroy_int(list_with_null_slot.elems[0]);
+    list_with_null_slot.elems[0] = NULL;
+    list_destroy(&list_with_null_slot);
+
+    assert(list_init(&dest, destroy_int, copy_int) == 1);
+    assert(list_assign(NULL, &list) == 0);
+    assert(list_assign(&dest, NULL) == 0);
+
+    List broken_src = { NULL, 1, 0, NULL, NULL };
+    assert(list_assign(&dest, &broken_src) == 0);
+
+    list_test_fail_next_malloc();
+    assert(list_assign(&dest, &list) == 0);
+
+    fail_copy_int = 1;
+    assert(list_assign(&dest, &list) == 0);
+    fail_copy_int = 0;
+
+    list_destroy(&dest);
+    list_destroy(&list);
+    list_destroy(NULL);
+}
+
 static void test_repo_full_capacity(void)
 {
     Repo r;
@@ -204,7 +288,7 @@ static void test_repo_allocation_failure_paths(void)
 {
     Repo r;
 
-    repo_test_fail_next_malloc();
+    list_test_fail_next_malloc();
     assert(repo_init(&r) == 0);
     assert(r.elems == NULL);
     assert(r.lg == 0);
@@ -222,6 +306,53 @@ static void test_repo_allocation_failure_paths(void)
     assert(repo_add(&r, d3) == 0);
     assert(repo_size(&r) == 2);
     assert(r.max_capacity == INITIAL_CAPACITY);
+
+    repo_destroy(&r);
+}
+
+static void test_repo_clone_and_replace(void)
+{
+    Repo original;
+    assert(repo_init(&original) == 1);
+    assert(repo_add(&original, create_dispozitiv(1, "laptop", "lenovo", "legion", 5000.0f, 2)) == 1);
+    assert(repo_add(&original, create_dispozitiv(2, "tv", "lg", "oled", 3500.0f, 1)) == 1);
+
+    Repo* snapshot = repo_clone(&original);
+    assert(snapshot != NULL);
+    assert(repo_delete(&original, 1) == 1);
+    assert(repo_size(&original) == 1);
+    assert(repo_size(snapshot) == 2);
+
+    assert(repo_replace(&original, snapshot) == 1);
+    assert(repo_size(&original) == 2);
+    assert(get_id(repo_get(&original, 0)) == 1);
+    assert(get_id(repo_get(&original, 1)) == 2);
+
+    repo_destroy(snapshot);
+    free(snapshot);
+    repo_destroy(&original);
+}
+
+static void test_repo_additional_failure_paths(void)
+{
+    Repo r;
+    assert(repo_init(&r) == 1);
+    assert(repo_add(&r, create_dispozitiv(1, "laptop", "acer", "nitro", 4000.0f, 1)) == 1);
+
+    repo_test_fail_next_malloc();
+    assert(repo_add(&r, create_dispozitiv(2, "tv", "lg", "oled", 5000.0f, 1)) == 0);
+
+    assert(repo_clone(NULL) == NULL);
+
+    repo_test_fail_next_malloc();
+    assert(repo_clone(&r) == NULL);
+
+    list_test_fail_next_malloc();
+    assert(repo_clone(&r) == NULL);
+
+    Repo broken_repo = r;
+    broken_repo.copy_elem = NULL;
+    assert(repo_clone(&broken_repo) == NULL);
 
     repo_destroy(&r);
 }
@@ -276,6 +407,7 @@ static void test_service_add_update_delete(void)
     assert(service_delete(&s, 1) == 1);
     assert(service_delete(&s, 1) == 0);
     assert(service_size(&s) == 0);
+    service_destroy(&s);
     repo_destroy(&r);
 }
 
@@ -296,6 +428,7 @@ static void test_service_add_invalid_and_dynamic_repo(void)
 
     assert(service_size(&s) == initial_capacity + 5);
     assert(r.max_capacity >= service_size(&s));
+    service_destroy(&s);
     repo_destroy(&r);
 }
 
@@ -312,6 +445,7 @@ static void test_service_add_resize_failure(void)
     repo_test_fail_next_realloc();
     assert(service_add(&s, 3, "phone", "apple", "iphone", 7000.0f, 1) == -1);
     assert(service_size(&s) == 2);
+    service_destroy(&s);
     repo_destroy(&r);
 }
 
@@ -355,6 +489,7 @@ static void test_service_sorting(void)
     Dispozitiv sorted_equal_price[4];
     assert(service_sort(&s, sorted_equal_price, 4, SERVICE_SORT_KEY_PRICE, SERVICE_SORT_ORDER_ASC) == 4);
 
+    service_destroy(&s);
     repo_destroy(&r);
 }
 
@@ -375,6 +510,9 @@ static void test_service_filtering(void)
     assert(service_filter_by_producer(&s, "lenovo", filtered, 4) == 2);
     assert(get_id(&filtered[0]) == 1);
     assert(get_id(&filtered[1]) == 3);
+
+    assert(service_filter_by_type(&s, "tv", filtered, 4) == 1);
+    assert(get_id(&filtered[0]) == 2);
 
     assert(service_filter_by_price(&s, 3000.0f, SERVICE_CMP_GREATER, filtered, 4) == 2);
     assert(get_id(&filtered[0]) == 2);
@@ -399,6 +537,77 @@ static void test_service_filtering(void)
 
     assert(service_filter_by_price(&s, 1.0f, 99, filtered, 4) == -1);
     assert(service_filter_by_quantity(&s, 1, 99, filtered, 4) == -1);
+    service_destroy(&s);
+    repo_destroy(&r);
+}
+
+static void test_service_multi_undo(void)
+{
+    Repo r;
+    Service s;
+    assert(repo_init(&r) == 1);
+    service_init(&s, &r);
+
+    assert(service_add(&s, 1, "laptop", "lenovo", "legion", 5000.0f, 2) == 1);
+    assert(service_add(&s, 2, "tv", "lg", "oled", 3500.0f, 1) == 1);
+    assert(service_update(&s, 1, 4500.0f, 4) == 1);
+    assert(service_delete(&s, 2) == 1);
+    assert(service_size(&s) == 1);
+
+    assert(service_undo(&s) == 1);
+    assert(service_size(&s) == 2);
+    assert(repo_find_by_id(&r, 2) != -1);
+
+    assert(service_undo(&s) == 1);
+    assert(float_equal(service_get_price(&s, 0), 5000.0f));
+    assert(service_get_quant(&s, 0) == 2);
+
+    assert(service_undo(&s) == 1);
+    assert(service_size(&s) == 1);
+    assert(repo_find_by_id(&r, 2) == -1);
+
+    assert(service_undo(&s) == 1);
+    assert(service_size(&s) == 0);
+    assert(service_undo(&s) == 0);
+
+    service_destroy(&s);
+    repo_destroy(&r);
+}
+
+static void test_service_undo_failure_paths(void)
+{
+    Repo r;
+    Service s;
+    Repo* broken_snapshot;
+
+    assert(repo_init(&r) == 1);
+
+    list_test_fail_next_malloc();
+    service_init(&s, &r);
+    assert(s.undo_list.elems == NULL);
+    assert(service_add(&s, 1, "laptop", "lenovo", "legion", 5000.0f, 1) == -1);
+
+    assert(repo_add(&r, create_dispozitiv(1, "laptop", "lenovo", "legion", 5000.0f, 1)) == 1);
+    assert(service_update(&s, 1, 4500.0f, 2) == -1);
+    assert(service_delete(&s, 1) == -1);
+    service_destroy(NULL);
+    service_destroy(&s);
+
+    service_init(&s, &r);
+    s.undo_list.elems[0] = NULL;
+    s.undo_list.lg = 1;
+    assert(service_undo(&s) == -1);
+    s.undo_list.lg = 0;
+
+    broken_snapshot = (Repo*)malloc(sizeof(Repo));
+    assert(broken_snapshot != NULL);
+    *broken_snapshot = (Repo){ NULL, 1, 0, NULL, NULL };
+    s.undo_list.elems[0] = broken_snapshot;
+    s.undo_list.lg = 1;
+    assert(service_undo(&s) == -1);
+    s.undo_list.lg = 0;
+
+    service_destroy(&s);
     repo_destroy(&r);
 }
 
@@ -415,6 +624,7 @@ static void test_service_null_guards(void)
     assert(service_add(NULL, 1, "laptop", "lenovo", "legion", 3000.0f, 1) == -1);
     assert(service_update(NULL, 1, 1000.0f, 2) == -1);
     assert(service_delete(NULL, 1) == 0);
+    assert(service_undo(NULL) == -1);
     assert(service_size(NULL) == 0);
     assert(service_get_id(NULL, 0) == -1);
     assert(strcmp(service_get_type(NULL, 0), "") == 0);
@@ -425,15 +635,17 @@ static void test_service_null_guards(void)
     assert(service_sort(NULL, out, 1, SERVICE_SORT_KEY_PRICE, SERVICE_SORT_ORDER_ASC) == -1);
     assert(service_sort(NULL, NULL, 0, SERVICE_SORT_KEY_PRICE, SERVICE_SORT_ORDER_ASC) == -1);
     assert(service_filter_by_producer(NULL, "lenovo", out, 1) == -1);
+    assert(service_filter_by_type(NULL, "laptop", out, 1) == -1);
     assert(service_filter_by_price(NULL, 1000.0f, SERVICE_CMP_EQUAL, out, 1) == -1);
     assert(service_filter_by_quantity(NULL, 1, SERVICE_CMP_EQUAL, out, 1) == -1);
 
+    service_destroy(&s);
     repo_destroy(&r);
 }
 
 static void test_service_repo_corrupted_guards(void)
 {
-    Repo broken_repo = { NULL, 1, 0 };
+    Repo broken_repo = { NULL, 1, 0, NULL, NULL };
     Service s;
     Dispozitiv out[2];
 
@@ -441,8 +653,10 @@ static void test_service_repo_corrupted_guards(void)
 
     assert(service_sort(&s, out, 1, SERVICE_SORT_KEY_PRICE, SERVICE_SORT_ORDER_ASC) == -1);
     assert(service_filter_by_producer(&s, "x", out, 1) == -1);
+    assert(service_filter_by_type(&s, "x", out, 1) == -1);
     assert(service_filter_by_price(&s, 100.0f, SERVICE_CMP_GREATER, out, 1) == -1);
     assert(service_filter_by_quantity(&s, 1, SERVICE_CMP_GREATER, out, 1) == -1);
+    service_destroy(&s);
 }
 
 void run_all_tests(void)
@@ -452,16 +666,21 @@ void run_all_tests(void)
     test_domain_defensive_guards();
     test_validator();
     test_validator_length_and_null_guards();
+    test_list_generic_and_failure_paths();
     test_repo_add_find_get_set_delete();
     test_repo_full_capacity();
     test_repo_resize_guards_and_shrink();
     test_repo_allocation_failure_paths();
+    test_repo_clone_and_replace();
+    test_repo_additional_failure_paths();
     test_repo_null_guards();
     test_service_add_update_delete();
     test_service_add_invalid_and_dynamic_repo();
     test_service_add_resize_failure();
     test_service_sorting();
     test_service_filtering();
+    test_service_multi_undo();
+    test_service_undo_failure_paths();
     test_service_null_guards();
     test_service_repo_corrupted_guards();
 

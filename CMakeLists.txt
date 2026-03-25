@@ -41,6 +41,7 @@ set(CORE_SOURCES
         Controller/service.c
         Domain/dispozitiv.c
         Domain/validator.c
+        Repository/list.c
         Repository/repo.c
 )
 
@@ -53,6 +54,7 @@ set(PROJECT_HEADERS
         Controller/service.h
         Domain/dispozitiv.h
         Domain/validator.h
+        Repository/list.h
         Repository/repo.h
         UI/ui.h
         Tests/tests.h

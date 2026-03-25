@@ -2,17 +2,9 @@
 #define LAB2_4_REPO_H
 
 #include "../Domain/dispozitiv.h"
+#include "list.h"
 
-#define INITIAL_CAPACITY 2
-#define RESIZE_GROW 0
-#define RESIZE_SHRINK 1
-
-typedef struct
-{
-    Dispozitiv* elems;
-    int lg;
-    int max_capacity;
-} Repo;
+typedef List Repo;
 
 /*
  * Initializeaza repository-ul.
@@ -71,6 +63,18 @@ int repo_delete(Repo* r, int id);
  * post: repo-ul devine gol si nu mai detine memorie alocata
  */
 void repo_destroy(Repo* r);
+
+/*
+ * Creeaza o copie independenta a repository-ului.
+ * return: pointer la copia noua sau NULL daca alocarea a esuat
+ */
+Repo* repo_clone(const Repo* r);
+
+/*
+ * Inlocuieste continutul repository-ului curent cu o copie independenta a altui repo.
+ * return: 1 daca operatia a reusit, 0 altfel
+ */
+int repo_replace(Repo* dest, const Repo* src);
 
 #ifdef LAB2_4_TESTING
 /*

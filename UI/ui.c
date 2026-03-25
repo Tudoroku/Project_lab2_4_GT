@@ -60,9 +60,10 @@ static void print_menu()
     printf("1. Adauga dispozitiv\n");
     printf("2. Modifica dispozitiv\n");
     printf("3. Sterge dispozitiv\n");
-    printf("4. Afiseaza toate dispozitivele\n");
-    printf("5. Vizualizare ordonata (pret/cantitate)\n");
-    printf("6. Vizualizare filtrata\n");
+    printf("4. Undo\n");
+    printf("5. Afiseaza toate dispozitivele\n");
+    printf("6. Vizualizare ordonata (pret/cantitate)\n");
+    printf("7. Vizualizare filtrata\n");
     printf("0. Iesire\n");
     printf("Optiunea ta: ");
 }
@@ -96,7 +97,7 @@ static void ui_add(UI* ui)
     }
     else
     {
-        printf("Repo-ul este plin.\n");
+        printf("Operatia a esuat din cauza memoriei insuficiente.\n");
     }
 }
 
@@ -125,7 +126,7 @@ static void ui_update(UI* ui)
     }
     else
     {
-        printf("Date invalide.\n");
+        printf("Date invalide sau memorie insuficienta pentru undo.\n");
     }
 }
 
@@ -145,9 +146,31 @@ static void ui_delete(UI* ui)
     {
         printf("Dispozitiv sters cu succes.\n");
     }
+    else if (result == -1)
+    {
+        printf("Operatia a esuat din cauza memoriei insuficiente pentru undo.\n");
+    }
     else
     {
         printf("Nu exista dispozitiv cu acest ID.\n");
+    }
+}
+
+static void ui_undo(UI* ui)
+{
+    const int result = service_undo(ui->service);
+
+    if (result == 1)
+    {
+        printf("Undo realizat cu succes.\n");
+    }
+    else if (result == 0)
+    {
+        printf("Nu mai exista operatii de anulat.\n");
+    }
+    else
+    {
+        printf("Undo esuat.\n");
     }
 }
 
@@ -298,7 +321,7 @@ static void ui_print_filtered(UI* ui)
     }
 
     int criterion;
-    printf("Filtrare dupa: 1.Producator  2.Pret  3.Cantitate\n");
+    printf("Filtrare dupa: 1.Producator  2.Tip  3.Pret  4.Cantitate\n");
     if (!read_int_prompt("Optiunea ta: ", &criterion))
     {
         printf("Input invalid.\n");
@@ -327,6 +350,18 @@ static void ui_print_filtered(UI* ui)
     }
     else if (criterion == 2)
     {
+        char type[50];
+        if (!read_word_prompt("Tip: ", type))
+        {
+            printf("Input invalid.\n");
+            free(buffer);
+            return;
+        }
+
+        count = service_filter_by_type(ui->service, type, buffer, n);
+    }
+    else if (criterion == 3)
+    {
         float value;
         if (!read_float_prompt("Pret de comparat: ", &value))
         {
@@ -338,7 +373,7 @@ static void ui_print_filtered(UI* ui)
         int cmp = read_cmp_from_user();
         count = service_filter_by_price(ui->service, value, cmp, buffer, n);
     }
-    else if (criterion == 3)
+    else if (criterion == 4)
     {
         int value;
         if (!read_int_prompt("Cantitate de comparat: ", &value))
@@ -409,12 +444,15 @@ void ui_run(UI* ui)
                 ui_delete(ui);
                 break;
             case 4:
-                ui_print_all(ui);
+                ui_undo(ui);
                 break;
             case 5:
-                ui_print_sorted(ui);
+                ui_print_all(ui);
                 break;
             case 6:
+                ui_print_sorted(ui);
+                break;
+            case 7:
                 ui_print_filtered(ui);
                 break;
             case 0:

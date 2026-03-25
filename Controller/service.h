@@ -10,6 +10,7 @@
 typedef struct
 {
     Repo* repo;
+    List undo_list;
 } Service;
 
 #define SERVICE_SORT_KEY_PRICE 1
@@ -25,6 +26,11 @@ typedef struct
  * Initializeaza service-ul.
  */
 void service_init(Service* s, Repo* r);
+
+/*
+ * Elibereaza resursele auxiliare ale service-ului.
+ */
+void service_destroy(Service* s);
 
 /*
  * Adauga un dispozitiv.
@@ -55,6 +61,16 @@ int service_update(Service* s, int id, float new_price, int new_quant);
  *  0 daca nu exista
  */
 int service_delete(Service* s, int id);
+
+/*
+ * Reface ultima operatie de adaugare/modificare/stergere.
+ *
+ * return:
+ *  1 daca undo a reusit
+ *  0 daca nu exista operatii de anulat
+ * -1 daca restaurarea a esuat
+ */
+int service_undo(Service* s);
 
 /*
  * Returneaza numarul de dispozitive din stoc.
@@ -108,6 +124,7 @@ int service_sort(const Service* s, Dispozitiv* out, int max_count, int key, int 
  *  -1 daca parametrii sunt invalizi
  */
 int service_filter_by_producer(const Service* s, const char* producer, Dispozitiv* out, int max_count);
+int service_filter_by_type(const Service* s, const char* type, Dispozitiv* out, int max_count);
 int service_filter_by_price(const Service* s, float value, int cmp, Dispozitiv* out, int max_count);
 int service_filter_by_quantity(const Service* s, int value, int cmp, Dispozitiv* out, int max_count);
 

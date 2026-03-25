@@ -1,23 +1,9 @@
-//
-// Created by tudor on 3/10/2026.
-//
-
 #include "repo.h"
+
 #include <stdlib.h>
 
 #ifdef LAB2_4_TESTING
 static int repo_fail_next_malloc = 0;
-static int repo_fail_next_realloc = 0;
-
-void repo_test_fail_next_malloc(void)
-{
-    repo_fail_next_malloc = 1;
-}
-
-void repo_test_fail_next_realloc(void)
-{
-    repo_fail_next_realloc = 1;
-}
 
 static void* repo_malloc(size_t size)
 {
@@ -26,109 +12,48 @@ static void* repo_malloc(size_t size)
         repo_fail_next_malloc = 0;
         return NULL;
     }
-    return malloc(size);
-}
 
-static void* repo_realloc(void* ptr, size_t size)
-{
-    if (repo_fail_next_realloc)
-    {
-        repo_fail_next_realloc = 0;
-        return NULL;
-    }
-    return realloc(ptr, size);
+    return malloc(size);
 }
 #else
 #define repo_malloc malloc
-#define repo_realloc realloc
 #endif
+
+static void repo_destroy_dispozitiv(void* elem)
+{
+    free(elem);
+}
+
+static void* repo_copy_dispozitiv(const void* elem)
+{
+    Dispozitiv* copy = (Dispozitiv*)repo_malloc(sizeof(Dispozitiv));
+    if (copy == NULL)
+    {
+        return NULL;
+    }
+
+    *copy = *(const Dispozitiv*)elem;
+    return copy;
+}
 
 int repo_init(Repo* r)
 {
-    if (r == NULL)
-    {
-        return 0;
-    }
-
-    r->lg = 0;
-    r->max_capacity = INITIAL_CAPACITY;
-    r->elems = (Dispozitiv*)repo_malloc(r->max_capacity * sizeof(Dispozitiv));
-    if (r->elems == NULL)
-    {
-        r->max_capacity = 0;
-        r->lg = 0;
-        return 0;
-    }
-    return 1;
+    return list_init(r, repo_destroy_dispozitiv, repo_copy_dispozitiv);
 }
 
 int repo_size(const Repo* r)
 {
-    if (r == NULL)
-    {
-        return 0;
-    }
-
-    return r->lg;
+    return list_size(r);
 }
 
-int repo_resize(Repo *r, int opt)
+int repo_resize(Repo* r, int opt)
 {
-    if (r == NULL || r->elems == NULL || r->max_capacity <= 0)
-    {
-        return 0;
-    }
-
-    int new_capacity;
-    if (opt == RESIZE_GROW)
-    {
-        // if opt = 0, reallocate more space
-        new_capacity = r->max_capacity * 2;
-    }
-    else if (opt == RESIZE_SHRINK)
-    {
-        // if opt = 1, reallocate less space
-        new_capacity = r->max_capacity / 2;
-        if (new_capacity < INITIAL_CAPACITY)
-        {
-            new_capacity = INITIAL_CAPACITY;
-        }
-    }
-    else
-    {
-        return 0;
-    }
-    if (new_capacity == r->max_capacity)
-    {
-        return 1;
-    }
-    Dispozitiv* tmp = (Dispozitiv*)repo_realloc(r->elems, new_capacity * sizeof(Dispozitiv));
-    if (tmp == NULL)
-    {
-        return 0;
-    }
-    r->elems = tmp;
-    r->max_capacity = new_capacity;
-    return 1;
+    return list_resize(r, opt);
 }
+
 int repo_add(Repo* r, Dispozitiv d)
 {
-    if (r == NULL || r->elems == NULL)
-    {
-        return 0;
-    }
-
-    if (r->lg == r->max_capacity)
-    {
-        if (!repo_resize(r, RESIZE_GROW))
-        {
-            return 0;
-        }
-    }
-
-    r->elems[r->lg] = d;
-    r->lg++;
-    return 1;
+    return list_push_back(r, &d);
 }
 
 int repo_find_by_id(const Repo* r, int id)
@@ -140,78 +65,84 @@ int repo_find_by_id(const Repo* r, int id)
 
     for (int i = 0; i < r->lg; i++)
     {
-        if (get_id(&r->elems[i]) == id)
+        const Dispozitiv* d = (const Dispozitiv*)list_get(r, i);
+        if (d != NULL && get_id(d) == id)
         {
             return i;
         }
     }
+
     return -1;
 }
 
 const Dispozitiv* repo_get(const Repo* r, int poz)
 {
-    if (r == NULL || r->elems == NULL)
-    {
-        return NULL;
-    }
-
-    if (poz < 0 || poz >= r->lg)
-    {
-        return NULL;
-    }
-    return &r->elems[poz];
+    return (const Dispozitiv*)list_get(r, poz);
 }
 
 int repo_set(Repo* r, int poz, Dispozitiv d)
 {
-    if (r == NULL || r->elems == NULL)
-    {
-        return 0;
-    }
-
-    if (poz < 0 || poz >= r->lg)
-    {
-        return 0;
-    }
-
-    r->elems[poz] = d;
-    return 1;
+    return list_set(r, poz, &d);
 }
 
 int repo_delete(Repo* r, int id)
 {
-    if (r == NULL || r->elems == NULL)
-    {
-        return 0;
-    }
-
-    int poz = repo_find_by_id(r, id);
+    const int poz = repo_find_by_id(r, id);
     if (poz == -1)
     {
         return 0;
     }
-    for (int i = poz; i < r->lg - 1; i++)
-    {
-        r->elems[i] = r->elems[i + 1];
-    }
 
-    r->lg--;
-    if (r->max_capacity > INITIAL_CAPACITY && r->lg <= r->max_capacity / 4)
-    {
-        repo_resize(r, RESIZE_SHRINK);
-    }
-    return 1;
+    return list_remove_at(r, poz);
 }
 
 void repo_destroy(Repo* r)
 {
+    list_destroy(r);
+}
+
+Repo* repo_clone(const Repo* r)
+{
     if (r == NULL)
     {
-        return;
+        return NULL;
     }
 
-    free(r->elems);
-    r->elems = NULL;
-    r->lg = 0;
-    r->max_capacity = 0;
+    Repo* clone = (Repo*)repo_malloc(sizeof(Repo));
+    if (clone == NULL)
+    {
+        return NULL;
+    }
+
+    if (!repo_init(clone))
+    {
+        free(clone);
+        return NULL;
+    }
+
+    if (!repo_replace(clone, r))
+    {
+        repo_destroy(clone);
+        free(clone);
+        return NULL;
+    }
+
+    return clone;
 }
+
+int repo_replace(Repo* dest, const Repo* src)
+{
+    return list_assign(dest, src);
+}
+
+#ifdef LAB2_4_TESTING
+void repo_test_fail_next_malloc(void)
+{
+    repo_fail_next_malloc = 1;
+}
+
+void repo_test_fail_next_realloc(void)
+{
+    list_test_fail_next_realloc();
+}
+#endif
